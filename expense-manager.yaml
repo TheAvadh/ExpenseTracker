@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Wealth tracking app template
+Resources:
+  WealthTrackerS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: wealth-tracker-bills
+
+  BillProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: BillProcessingQueue
+
+  BillAttachmentProcessorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: processBillAttachment
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: your-code-bucket
+        S3Key: processBillAttachment.zip
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref BillProcessingQueue
+          DB_ENDPOINT: !GetAtt WealthTrackerRDS.Endpoint.Address
+          DB_USER: masterUsername
+          DB_PASSWORD: masterPassword
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - s3:GetObject
+                  - s3:PutObject
+                  - sqs:SendMessage
+                  - rds-db:connect
+                Resource: "*"
+
+  WealthTrackerRDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: expense-manager-db
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: MySQL
+      MasterUsername: admin
+      MasterUserPassword: KPUPLyXZ02Ckq1w0oVd2
+      DBName: expense-manager-db
+
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: WealthTrackerAPI
+
+  ApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: transactions
+      RestApiId: !Ref ApiGatewayRestApi
+
+  ApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: 
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BillAttachmentProcessorFunction.Arn}/invocations
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: WealthTrackerUserPool
+      AutoVerifiedAttributes:
+        - email
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: WealthTrackerUserPoolClient
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+
+  CognitoIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: WealthTrackerIdentityPool
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref CognitoUserPoolClient
+          ProviderName: !GetAtt CognitoUserPool.ProviderName
