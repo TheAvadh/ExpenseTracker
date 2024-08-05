@@ -3,17 +3,17 @@ import PropTypes from 'prop-types';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import { useNavigate } from 'react-router-dom';
-import axios from "axios";
-import { useAuth } from '../AuthContext';
+import axios from 'axios';
+import { Amplify } from 'aws-amplify';
+import awsmobile from '../aws-exports';
+
+Amplify.configure(awsmobile);
 
 const AuthPage = () => {
   const [isSignup, setIsSignup] = useState(true);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  console.log(loading);
-  console.log(error);
 
   useEffect(() => {
     AOS.init({ duration: 1000 });
@@ -46,22 +46,6 @@ const AuthPage = () => {
     className: PropTypes.string,
   };
 
-  const Select = ({ id, className, children, ...props }) => (
-    <select
-      id={id}
-      className={`mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-base-100 focus:border-base-200 sm:text-sm ${className}`}
-      {...props}
-    >
-      {children}
-    </select>
-  );
-
-  Select.propTypes = {
-    id: PropTypes.string.isRequired,
-    className: PropTypes.string,
-    children: PropTypes.node.isRequired,
-  };
-
   const Button = ({ type = 'button', className, children, ...props }) => (
     <button
       type={type}
@@ -82,50 +66,65 @@ const AuthPage = () => {
     navigate('/forgot-password');
   };
 
-  const { login } = useAuth(); // Use the login function from AuthContext
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const data = {
-      fullName: e.target.fullName?.value,
-      email: e.target.email.value,
-      password: e.target.password.value,
-      confirmPassword: e.target.confirmPassword?.value,
-    };
-
-    const url = isSignup ? 'http://localhost:8080/api/auth/register' : 'http://localhost:8080/api/auth/login';
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    const fullName = e.target.fullName?.value;
 
     try {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post(url, data, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      if (isSignup) {
+        const confirmPassword = e.target.confirmPassword.value;
 
-      if (response.status === 200 || response.status === 201) {
-        if(isSignup){
-          setIsSignup(false);
-        }else{
-          const { token, user } = response.data;
-          login(user, token);
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          return;
+        }
+
+        // Sign up with AWS Cognito
+        await Amplify.Auth.signUp({
+          username: email,
+          password,
+          attributes: {
+            email,
+            name: fullName,
+          },
+        });
+
+        // Save user info in RDS
+        await axios.post('http://localhost:8080/api/auth/register', {
+          email,
+          fullName,
+        });
+
+        setIsSignup(false);
+      } else {
+        // Sign in with AWS Cognito
+        const user = await Amplify.Auth.signIn(email, password);
+        // Get JWT token from Cognito
+        const token = user.signInUserSession.idToken.jwtToken;
+
+        // Send token to backend to store user info and authenticate
+        const response = await axios.post('http://localhost:8080/api/auth/login', {
+          email,
+          token,
+        });
+
+        // Handle response
+        if (response.status === 200 || response.status === 201) {
           navigate('/');
         }
-      } else {
-        console.error('Unexpected response:', response);
-        setError('An error occurred');
       }
     } catch (error) {
-      console.error('Error:', error.response ? error.response.data : error.message);
-      setError(error.response ? error.response.data : 'An error occurred');
+      console.error('Error:', error);
+      setError(error.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="font-poppins antialiased text-gray-900 bg-gradient-to-b from-base-200 to-base-200 min-h-screen flex items-center justify-center">
@@ -187,7 +186,7 @@ const AuthPage = () => {
               Login
             </Button>
             <p className="text-sm text-center mt-2">
-              Forgot your password? <span className="text-base-200 cursor-pointer" onClick={handleForgotPassword}>Reset here</span>
+              Forgot your password? <span className="text-base-200 cursor-pointer text-blue-400" onClick={handleForgotPassword}>Reset here</span>
             </p>
           </form>
         )}

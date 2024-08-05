@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-expenger-dev-846b5-authRole",
+      "UnauthRoleArn": "arn:aws:iam::767398055811:role/amplify-expenger-dev-846b5-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::767398055811:role/amplify-expenger-dev-846b5-authRole",
+      "Region": "us-east-2",
+      "DeploymentBucketName": "amplify-expenger-dev-846b5-deployment",
+      "UnauthRoleName": "amplify-expenger-dev-846b5-unauthRole",
+      "StackName": "amplify-expenger-dev-846b5",
+      "StackId": "arn:aws:cloudformation:us-east-2:767398055811:stack/amplify-expenger-dev-846b5/7a5b30c0-52f0-11ef-9644-0634fa50686d",
+      "AmplifyAppId": "d2bmkxnu3s1bgs"
+    },
+    "categories": {
+      "auth": {
+        "expenger066aa079": {}
+      }
+    }
+  }
+}
