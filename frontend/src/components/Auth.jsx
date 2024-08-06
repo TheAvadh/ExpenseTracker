@@ -6,6 +6,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Amplify } from 'aws-amplify';
 import awsmobile from '../aws-exports';
+import { signUp } from 'aws-amplify/auth';
+import { signIn } from 'aws-amplify/auth';
+import { getCurrentUser } from 'aws-amplify/auth';
+import { signOut } from 'aws-amplify/auth';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 Amplify.configure(awsmobile);
 
@@ -72,6 +77,8 @@ const AuthPage = () => {
     const password = e.target.password.value;
     const fullName = e.target.fullName?.value;
 
+    console.log('Form Submitted', { email, password, fullName, isSignup });
+
     try {
       setLoading(true);
       setError(null);
@@ -81,41 +88,66 @@ const AuthPage = () => {
 
         if (password !== confirmPassword) {
           setError('Passwords do not match');
+          setLoading(false);
           return;
         }
 
         // Sign up with AWS Cognito
-        await Amplify.Auth.signUp({
-          username: email,
-          password,
-          attributes: {
-            email,
-            name: fullName,
-          },
-        });
-
-        // Save user info in RDS
-        await axios.post('http://localhost:8080/api/auth/register', {
-          email,
-          fullName,
-        });
+        try {
+          console.log('Signing up user with AWS Cognito');
+          await signUp({
+            username: email,
+            password,
+            attributes: {
+              email,
+              name: fullName,
+            },
+          });
+          navigate('/confirmation', { state: { email, fullName, password } });
+        } catch (error) {
+          console.error('Signup error due to cognito:', error);
+          setError(error.message || 'An error occurred during sign up');
+          setLoading(false);
+          return;
+        }
 
         setIsSignup(false);
       } else {
         // Sign in with AWS Cognito
-        const user = await Amplify.Auth.signIn(email, password);
-        // Get JWT token from Cognito
-        const token = user.signInUserSession.idToken.jwtToken;
+        // Check for the current user
+        try {
+          const currentUser = await getCurrentUser();
+          if (currentUser) {
+            await signOut();
+          }
+        } catch (error) {
+          console.log('No signed-in user to sign out', error);
+        }
 
-        // Send token to backend to store user info and authenticate
-        const response = await axios.post('http://localhost:8080/api/auth/login', {
-          email,
-          token,
-        });
+        try {
+          console.log('Signing in user with AWS Cognito');
+          console.log (email);
+          const user = await signIn({ username: email, password });
+          const session = await fetchAuthSession();
+          const token = session.tokens.accessToken;
 
-        // Handle response
-        if (response.status === 200 || response.status === 201) {
-          navigate('/');
+          // Send token to backend to authenticate
+          console.log('Sending token to backend to authenticate');
+          const response = await axios.post('http://localhost:8080/api/auth/login', {
+            email,
+            password,
+            token,
+          });
+
+          if (response.status === 200 || response.status === 201) {
+            console.log('Authentication successful, redirecting to dashboard');
+            navigate('/dashboard');
+          } else {
+            setError('Authentication failed');
+          }
+        } catch (error) {
+          console.error('Signin error:', error);
+          setError(error.message || 'An error occurred during sign in');
         }
       }
     } catch (error) {
@@ -190,6 +222,8 @@ const AuthPage = () => {
             </p>
           </form>
         )}
+        {loading && <p>Loading...</p>}
+        {error && <p className="text-red-500">{error}</p>}
       </div>
     </div>
   );

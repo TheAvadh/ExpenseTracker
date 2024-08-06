@@ -12,6 +12,8 @@ import Footer from './components/Footer';
 import DashboardPage from './components/Dashboard';
 import { Amplify } from 'aws-amplify';
 import awsmobile from './aws-exports';
+import ConfirmationPage from './components/ConfirmationPage';
+import TransactionPage from './components/Transaction';
 
 Amplify.configure(awsmobile);
 
@@ -97,8 +99,10 @@ function App() {
         <main className="mx-auto">
           <Routes>
             <Route path="/signup" element={<AuthPage />} />
+            <Route path="/confirmation" element={<ConfirmationPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/dashboard" element = {<DashboardPage />} />
+            <Route path="/add-transacion" element = {<TransactionPage />} />
           </Routes>
         </main>
 
