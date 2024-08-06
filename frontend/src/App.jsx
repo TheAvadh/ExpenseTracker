@@ -14,6 +14,7 @@ import { Amplify } from 'aws-amplify';
 import awsmobile from './aws-exports';
 import ConfirmationPage from './components/ConfirmationPage';
 import TransactionPage from './components/Transaction';
+import HistoryPage from './components/History';
 
 Amplify.configure(awsmobile);
 
@@ -86,7 +87,7 @@ function App() {
                   <div className="md:flex items-center justify-end space-x-4">
                     <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Home</NavLink>
                     <NavLink to="/add-transacion" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Add a Transaction</NavLink>
-                    <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>History</NavLink>
+                    <NavLink to="/history" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>History</NavLink>
                     <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Account Setting</NavLink>
                     <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>About</NavLink>
                   </div>
@@ -103,6 +104,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/dashboard" element = {<DashboardPage />} />
             <Route path="/add-transacion" element = {<TransactionPage />} />
+            <Route path="/history" element = {<HistoryPage />} />
           </Routes>
         </main>
 
