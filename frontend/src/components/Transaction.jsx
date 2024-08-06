@@ -1,20 +1,25 @@
-"use client"
+import React, { useState } from "react";
 
-import { useState } from "react";
-
-const TransactionPage = () => {
+export default function TransactionPage() {
   const [selectedOption, setSelectedOption] = useState("income");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [pdfFile, setPdfFile] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("Selected option:", selectedOption);
     console.log("Amount:", amount);
     console.log("Description:", description);
+    console.log("PDF File:", pdfFile);
     setSelectedOption("income");
     setAmount("");
     setDescription("");
+    setPdfFile(null);
+  };
+
+  const handlePdfUpload = (e) => {
+    setPdfFile(e.target.files[0]);
   };
 
   return (
@@ -116,6 +121,28 @@ const TransactionPage = () => {
                 className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff] resize-none"
               />
             </div>
+            <div className="space-y-2">
+              <label htmlFor="pdf-file" className="block font-medium">
+                Attach PDF
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="pdf-file"
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfUpload}
+                  className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff]"
+                />
+                {pdfFile && (
+                  <button
+                    type="button"
+                    className="rounded-md bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#495057] transition-colors hover:bg-[#e9ecef] focus:outline-none focus:ring-1 focus:ring-[#ced4da]"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex justify-center gap-2">
               <button
                 type="submit"
@@ -136,6 +163,3 @@ const TransactionPage = () => {
     </div>
   );
 }
-
-
-export default TransactionPage;
