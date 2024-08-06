@@ -84,8 +84,8 @@ function App() {
               >
                 <div className="text-white md:flex md:justify-end md:space-x-4">
                   <div className="md:flex items-center justify-end space-x-4">
-                    <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Home</NavLink>
-                    <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Add a Transaction</NavLink>
+                    <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Home</NavLink>
+                    <NavLink to="/add-transacion" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Add a Transaction</NavLink>
                     <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>History</NavLink>
                     <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>Account Setting</NavLink>
                     <NavLink to="/" className={({ isActive }) => isActive ? 'bg-white rounded-box block px-4 py-2 text-black font-bold hover:bg-base-200' : 'block px-4 py-2 text-black font-bold hover:bg-base-200'}>About</NavLink>
