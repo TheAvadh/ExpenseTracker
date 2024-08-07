@@ -1,26 +1,64 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { fetchAuthSession } from 'aws-amplify/auth';
+import { getCurrentUser } from 'aws-amplify/auth';
+import { fetchUserAttributes } from 'aws-amplify/auth';
 
 export default function TransactionPage() {
-  const [selectedOption, setSelectedOption] = useState("income");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [pdfFile, setPdfFile] = useState(null);
+    const [selectedOption, setSelectedOption] = useState("income");
+    const [amount, setAmount] = useState("");
+    const [description, setDescription] = useState("");
+    const [transactionType, setTransactionType] = useState("");
+    const [userEmail, setUserEmail] = useState("");
+    const [token, setToken] = useState(""); 
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Selected option:", selectedOption);
-    console.log("Amount:", amount);
-    console.log("Description:", description);
-    console.log("PDF File:", pdfFile);
-    setSelectedOption("income");
-    setAmount("");
-    setDescription("");
-    setPdfFile(null);
-  };
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            try {
+                const userAttributes = await fetchUserAttributes();
+                setUserEmail(userAttributes.email);
 
-  const handlePdfUpload = (e) => {
-    setPdfFile(e.target.files[0]);
-  };
+                const session = await fetchAuthSession();
+                setToken(session.tokens.accessToken);
+                console.log (session.tokens.accessToken);
+
+            } catch (error) {
+                console.error("Error fetching user details:", error);
+            }
+        };
+
+        fetchUserDetails();
+    }, []);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+    
+        const transactionData = {
+            email: userEmail,
+            type: selectedOption,
+            amount,
+            description,
+            transactionType,
+        };
+    
+        const transactionResponse = await fetch("http://localhost:8080/api/transaction", {
+            method: "POST",
+            headers: {
+                'Authorization': `Bearer ${token}`, // Send the token in the headers
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(transactionData),
+        });
+    
+        if (transactionResponse.ok) {
+            console.log("Transaction added successfully");
+            setSelectedOption("income");
+            setAmount("");
+            setDescription("");
+            setTransactionType("");
+        } else {
+            console.error("Error adding transaction:", await transactionResponse.text());
+        }
+    };
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-6">
@@ -73,8 +111,10 @@ export default function TransactionPage() {
                 <select
                   id="income-type"
                   className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff]"
+                  value={transactionType}
+                  onChange={(e) => setTransactionType(e.target.value)}
                 >
-                  <option value="income">Income</option>
+                  <option value="salary">Salary</option>
                   <option value="refund">Refund</option>
                   <option value="other">Other</option>
                 </select>
@@ -88,10 +128,29 @@ export default function TransactionPage() {
                 <select
                   id="expense-type"
                   className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff]"
+                  value={transactionType}
+                  onChange={(e) => setTransactionType(e.target.value)}
                 >
                   <option value="shopping">Shopping</option>
                   <option value="house-expense">House Expense</option>
                   <option value="bill-payment">Bill Payment</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            )}
+            {selectedOption === "investment" && (
+              <div className="space-y-2">
+                <label htmlFor="investment-type" className="block font-medium">
+                  Investment Type
+                </label>
+                <select
+                  id="investment-type"
+                  className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff]"
+                  value={transactionType}
+                  onChange={(e) => setTransactionType(e.target.value)}
+                >
+                  <option value="stocks">Stocks</option>
+                  <option value="savings">Savings</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -121,28 +180,6 @@ export default function TransactionPage() {
                 className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff] resize-none"
               />
             </div>
-            <div className="space-y-2">
-              <label htmlFor="pdf-file" className="block font-medium">
-                Attach PDF
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="pdf-file"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handlePdfUpload}
-                  className="block w-full rounded-md border border-[#ced4da] bg-[#f8f9fa] px-3 py-2 text-[#495057] focus:border-[#80bdff] focus:outline-none focus:ring-[#80bdff]"
-                />
-                {pdfFile && (
-                  <button
-                    type="button"
-                    className="rounded-md bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#495057] transition-colors hover:bg-[#e9ecef] focus:outline-none focus:ring-1 focus:ring-[#ced4da]"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
             <div className="flex justify-center gap-2">
               <button
                 type="submit"
@@ -153,6 +190,12 @@ export default function TransactionPage() {
               <button
                 type="button"
                 className="rounded-md bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#495057] transition-colors hover:bg-[#e9ecef] focus:outline-none focus:ring-1 focus:ring-[#ced4da]"
+                onClick={() => {
+                  setSelectedOption("income");
+                  setAmount("");
+                  setDescription("");
+                  setTransactionType("");
+                }}
               >
                 Discard
               </button>

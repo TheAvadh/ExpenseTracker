@@ -1,5 +1,4 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { getConnection } = require('../models/db');
 
 const register = async (req, res) => {
@@ -35,20 +34,13 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   const { email, password, token } = req.body;
 
-  if (!email || !password) {
+  if (!email || !password || !token) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  if (!token) {
-    return res.status(400).json({ error: 'Missing required token' });
-  }
-
   try {
-    // Assuming token is valid and not verifying it
-    // const decoded = jwt.verify(token, 'your_jwt_secret'); // Token verification removed
-
     const connection = await getConnection();
-    const sqlQuery = `SELECT * FROM users WHERE email = ?`; // Parameterized query
+    const sqlQuery = `SELECT * FROM users WHERE email = ?`;
     const [results] = await connection.execute(sqlQuery, [email]);
 
     if (results.length === 0) {
@@ -56,17 +48,15 @@ const login = async (req, res) => {
     }
 
     const user = results[0];
-
     const isMatch = await bcrypt.compare(password, user.password);
+    
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
 
-    const newToken = jwt.sign({ userId: user.user_id, email: user.email }, 'your_jwt_secret', { expiresIn: '1h' });
-
+    // Assume the token is valid and user is authenticated
     res.status(200).json({
       message: 'Login successful',
-      token: newToken,
       user: {
         id: user.user_id,
         fullName: user.name,

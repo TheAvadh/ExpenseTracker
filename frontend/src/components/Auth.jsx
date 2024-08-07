@@ -130,6 +130,7 @@ const AuthPage = () => {
           const user = await signIn({ username: email, password });
           const session = await fetchAuthSession();
           const token = session.tokens.accessToken;
+          console.log ("Token = ", token);
 
           // Send token to backend to authenticate
           console.log('Sending token to backend to authenticate');
