@@ -9,6 +9,7 @@ const addTransaction = async (req, res) => {
     const { email, type, amount, description, transactionType } = req.body;
 
     if (!email || !type || !amount || !transactionType) {
+        console.log(email, type, amount, transactionType);
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -16,17 +17,17 @@ const addTransaction = async (req, res) => {
         const connection = await getDbConnection();
         
         // Find user ID by email
-        const [userRows] = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
+        const [userRows] = await connection.execute('SELECT user_id FROM users WHERE email = ?', [email]);
         if (userRows.length === 0) {
             await connection.end();
             return res.status(404).json({ error: 'User not found' });
         }
-        const userId = userRows[0].id;
-
+        const userId = userRows[0].user_id;
+        
         // Insert transaction
         const [result] = await connection.execute(
-            'INSERT INTO transactions (user_id, type, amount, description, transaction_type) VALUES (?, ?, ?, ?, ?)',
-            [userId, type, amount, description, transactionType]
+            'INSERT INTO transactions ( user_id, type, amount, description, transaction_type) VALUES ( ?, ?, ?, ?, ?)',
+            [userId, type, amount, description|| null, transactionType]
         );
 
         await connection.end();

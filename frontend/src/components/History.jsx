@@ -123,7 +123,7 @@ export default function HistoryPage() {
                   <th className="px-4 py-2 text-left">Category</th>
                   <th className="px-4 py-2 text-right">Amount</th>
                   <th className="px-4 py-2 text-left">Description</th>
-                  <th className="px-4 py-2 text-left">Uploaded PDF</th>
+                
                 </tr>
               </thead>
               <tbody>
@@ -145,13 +145,7 @@ export default function HistoryPage() {
                       {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
                     </td>
                     <td className="px-4 py-2">{transaction.description}</td>
-                    <td className="px-4 py-2">
-                      {transaction.pdfUrl && (
-                        <Link to={transaction.pdfUrl} target="_blank" className="text-blue-500 hover:underline">
-                          View PDF
-                        </Link>
-                      )}
-                    </td>
+                    
                   </tr>
                 ))}
               </tbody>

@@ -1,115 +1,279 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Wealth tracking app template
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create S3 bucket, Lambda functions, Step Functions, IAM roles, API Gateway, RDS instance, and necessary permissions"
+
 Resources:
-  WealthTrackerS3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: wealth-tracker-bills
-
-  BillProcessingQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: BillProcessingQueue
-
-  BillAttachmentProcessorFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: processBillAttachment
-      Handler: index.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Code:
-        S3Bucket: your-code-bucket
-        S3Key: processBillAttachment.zip
-      Runtime: nodejs14.x
-      Environment:
-        Variables:
-          QUEUE_URL: !Ref BillProcessingQueue
-          DB_ENDPOINT: !GetAtt WealthTrackerRDS.Endpoint.Address
-          DB_USER: masterUsername
-          DB_PASSWORD: masterPassword
-
-  LambdaExecutionRole:
+  # IAM Role for Lambda and Step Functions
+  LambdaAndStepFunctionsRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: LambdaExecutionRole
+      RoleName: "LambdaAndStepFunctionsRole"
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          - Effect: "Allow"
             Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
+              Service: 
+                - "lambda.amazonaws.com"
+                - "states.amazonaws.com"
+            Action: "sts:AssumeRole"
       Policies:
-        - PolicyName: LambdaPolicy
+        - PolicyName: "LambdaExecutionPolicy"
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
-              - Effect: Allow
+              - Effect: "Allow"
                 Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - s3:GetObject
-                  - s3:PutObject
-                  - sqs:SendMessage
-                  - rds-db:connect
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${LambdaCodeBucket}/*" # Allow access to S3 bucket objects
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "states:StartExecution"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "lambda:InvokeFunction"
                 Resource: "*"
 
-  WealthTrackerRDS:
-    Type: AWS::RDS::DBInstance
+  # IAM Role for API Gateway to invoke Step Functions
+  ApiGatewayInvokeStepFunctionsRole:
+    Type: AWS::IAM::Role
     Properties:
-      DBInstanceIdentifier: expense-manager-db
-      AllocatedStorage: 20
-      DBInstanceClass: db.t3.micro
-      Engine: MySQL
-      MasterUsername: admin
-      MasterUserPassword: KPUPLyXZ02Ckq1w0oVd2
-      DBName: expense-manager-db
+      RoleName: "ApiGatewayInvokeStepFunctionsRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: 
+                - "apigateway.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "ApiGatewayInvokeStepFunctionsPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "states:StartExecution"
+                Resource: !GetAtt TransactionStateMachine.Arn
 
+  # Lambda Function for Income
+  AddIncomeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "AddIncomeFunction"
+      Handler: "income-function.handler"
+      Runtime: "nodejs20.x"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: "income-function.zip"
+      Role: !GetAtt LambdaAndStepFunctionsRole.Arn
+
+  # Lambda Function for Expense
+  AddExpenseFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "AddExpenseFunction"
+      Handler: "expense-function.handler"
+      Runtime: "nodejs20.x"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: "expense-function.zip"
+      Role: !GetAtt LambdaAndStepFunctionsRole.Arn
+
+  # Lambda Function for Investment
+  AddInvestmentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "AddInvestmentFunction"
+      Handler: "investment-function.handler"
+      Runtime: "nodejs20.x"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: "investment-function.zip"
+      Role: !GetAtt LambdaAndStepFunctionsRole.Arn
+
+  # Lambda Function for History
+  GetHistoryFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "GetHistoryFunction"
+      Handler: "history-function.handler"
+      Runtime: "nodejs20.x"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: "history-function.zip"
+      Role: !GetAtt LambdaAndStepFunctionsRole.Arn
+
+  # State Machine
+  TransactionStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: "TransactionStateMachine"
+      RoleArn: !GetAtt LambdaAndStepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "A state machine to route transaction types to appropriate Lambda functions",
+          "StartAt": "CheckTransactionType",
+          "States": {
+            "CheckTransactionType": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.type",
+                  "StringEquals": "income",
+                  "Next": "AddIncome"
+                },
+                {
+                  "Variable": "$.type",
+                  "StringEquals": "expense",
+                  "Next": "AddExpense"
+                },
+                {
+                  "Variable": "$.type",
+                  "StringEquals": "investment",
+                  "Next": "AddInvestment"
+                }
+              ],
+              "Default": "UnknownTransactionType"
+            },
+            "AddIncome": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:AddIncomeFunction",
+              "End": true
+            },
+            "AddExpense": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:AddExpenseFunction",
+              "End": true
+            },
+            "AddInvestment": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:AddInvestmentFunction",
+              "End": true
+            },
+            "UnknownTransactionType": {
+              "Type": "Fail",
+              "Error": "UnknownTransactionTypeError",
+              "Cause": "The transaction type was not recognized."
+            }
+          }
+        }
+
+  # API Gateway Rest API
   ApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: WealthTrackerAPI
+      Name: "TransactionApi"
+      Description: "API Gateway for transaction Step Functions"
 
-  ApiGatewayResource:
+  # API Gateway Resource for Transactions
+  ApiGatewayResourceTransaction:
     Type: AWS::ApiGateway::Resource
     Properties:
       ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
-      PathPart: transactions
+      PathPart: "transaction"
       RestApiId: !Ref ApiGatewayRestApi
 
-  ApiGatewayMethod:
+  # API Gateway Method for Transactions
+  ApiGatewayMethodTransaction:
     Type: AWS::ApiGateway::Method
     Properties:
       AuthorizationType: NONE
-      HttpMethod: POST
-      ResourceId: !Ref ApiGatewayResource
+      ApiKeyRequired: false
+      HttpMethod: "POST"
+      ResourceId: !Ref ApiGatewayResourceTransaction
       RestApiId: !Ref ApiGatewayRestApi
       Integration:
-        IntegrationHttpMethod: POST
-        Type: AWS_PROXY
-        Uri: 
-          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BillAttachmentProcessorFunction.Arn}/invocations
+        IntegrationHttpMethod: "POST"
+        Type: "AWS"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/StartExecution"
+        Credentials: !GetAtt ApiGatewayInvokeStepFunctionsRole.Arn
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: |
+            {}
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,token'"
+            method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+            method.response.header.Access-Control-Allow-Origin: "'*'"
 
-  CognitoUserPool:
-    Type: AWS::Cognito::UserPool
+  # API Gateway Resource for History
+  ApiGatewayResourceHistory:
+    Type: AWS::ApiGateway::Resource
     Properties:
-      UserPoolName: WealthTrackerUserPool
-      AutoVerifiedAttributes:
-        - email
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: "history"
+      RestApiId: !Ref ApiGatewayRestApi
 
-  CognitoUserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
+  # API Gateway Method for History
+  ApiGatewayMethodHistory:
+    Type: AWS::ApiGateway::Method
     Properties:
-      ClientName: WealthTrackerUserPoolClient
-      UserPoolId: !Ref CognitoUserPool
-      GenerateSecret: false
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      HttpMethod: "POST"
+      ResourceId: !Ref ApiGatewayResourceHistory
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetHistoryFunction.Arn}/invocations"
+        Credentials: !GetAtt ApiGatewayInvokeStepFunctionsRole.Arn
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: |
+            {
+              "email": "$input.json('$.email')"
+            }
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+            method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+            method.response.header.Access-Control-Allow-Origin: "'*'"
 
-  CognitoIdentityPool:
-    Type: AWS::Cognito::IdentityPool
+  # Deployment Stage
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: 
+      - ApiGatewayMethodTransaction
+      - ApiGatewayMethodHistory
     Properties:
-      IdentityPoolName: WealthTrackerIdentityPool
-      AllowUnauthenticatedIdentities: false
-      CognitoIdentityProviders:
-        - ClientId: !Ref CognitoUserPoolClient
-          ProviderName: !GetAtt CognitoUserPool.ProviderName
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: "development"  # Corrected to "development"
+
+
+  
+Outputs:
+  ApiGatewayUrl:
+    Description: "URL of the API Gateway"
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+
+Parameters:
+  LambdaCodeBucket:
+    Type: String
+    Default: "add-trans-lambda-bucket" # Specify your existing S3 bucket name here
+  

@@ -6,7 +6,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
-const s3Routes = require('./routes/s3Routes');
 
 // Middleware to handle CORS
 app.use(cors({
@@ -24,7 +23,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Route handlers
 app.use('/api/auth', authRoutes);  // Authentication routes
 app.use('/api/transaction', transactionRoutes);
-app.use('/api', s3Routes);
 
 
 // Start the server
